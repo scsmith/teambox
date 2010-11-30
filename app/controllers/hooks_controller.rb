@@ -29,6 +29,8 @@ class HooksController < ApplicationController
       @current_project.conversations.from_github JSON.parse(params[:payload])
     when 'email'
       Emailer.receive_params(params)
+    when 'cloudmailin'
+      mailer = Emailer.receive(params[:message])
     when 'pivotal'
       @current_project.task_lists.from_pivotal_tracker(params[:activity])
     else
