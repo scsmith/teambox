@@ -71,6 +71,26 @@ class GoogleDocs
     end
   end
   
+  def set_read_with_key(acl_url, role = :reader)
+    body = generate_acl_with_key_atom(role)
+    res = @access_token.post(acl_url, body, HEADERS.merge('Content-Type' => 'application/atom+xml'))
+    
+    if res.code.to_i == 201 || res.code.to_i == 409 # the acl entry was added
+      get_access_key(acl_url)
+    else
+      raise RetrievalError.new(res)
+    end
+  end
+  
+  def get_access_key(acl_url)
+    res = @access_token.get(acl_url, HEADERS)
+    if res.code.to_i == 200
+      return find_key_from_acl(res.body, 'reader') || find_key_from_acl(res.body, 'writer')
+    else
+      return false
+    end
+  end
+  
   protected
     def parse_list(data)
       docs = []
@@ -83,7 +103,7 @@ class GoogleDocs
     end
     
     def create_url(url, options)
-      params = options.select{|k, v| !v.nil? }.map{|k, v| "#{k}=#{v}"}.join("&")
+      params = options.select{|k, v| !v.nil? }.map{|k, v| "#{k}=#{CGI::escape(v)}"}.join("&")
       params.blank? ? url : "#{url}?#{params}"
     end
   
@@ -122,5 +142,36 @@ class GoogleDocs
         entry.gAcl :role, :value => role.to_s
         entry.gAcl :scope, :type => scope_type.to_s, :value => scope
       end
+    end
+    
+    def generate_acl_with_key_atom(role)
+      atom = xml = Builder::XmlMarkup.new(:indent => 2)
+      atom.entry('xmlns' => "http://www.w3.org/2005/Atom", 'xmlns:gAcl' => "http://schemas.google.com/acl/2007") do |entry|
+        entry.category(
+          :scheme => "http://schemas.google.com/g/2005#kind",
+          :term => "http://schemas.google.com/docs/2007#accessRule"
+        )
+        entry.gAcl :'withKey', :key => '' do |with_key|
+          with_key.gAcl :role, :value => role.to_s
+        end
+        entry.gAcl :scope, :type => 'default'
+      end
+    end
+    
+    def find_key_from_acl(data, role = 'reader')
+      document = Nokogiri::XML(data)
+      
+      document.xpath("//atom:entry", "atom" => "http://www.w3.org/2005/Atom").each do |entry|
+        with_key = entry.xpath("./gAcl:withKey", 'xmlns:gAcl' => "http://schemas.google.com/acl/2007")
+        #puts with_key.first
+        next unless with_key.first
+        
+        found_role = with_key.xpath('./gAcl:role', 'xmlns:gAcl' => "http://schemas.google.com/acl/2007")
+        next unless found_role.first && found_role.first[:value] == role
+
+        return with_key.first[:key]
+      end
+      
+      return false
     end
 end
