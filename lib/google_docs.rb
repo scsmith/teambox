@@ -85,7 +85,7 @@ class GoogleDocs
   def get_access_key(acl_url)
     res = @access_token.get(acl_url, HEADERS)
     if res.code.to_i == 200
-      return find_key_from_acl(res.body, 'reader') || find_key_from_acl(res.body, 'writer')
+      return find_key_from_acl(res.body, 'writer') || find_key_from_acl(res.body, 'reader')
     else
       return false
     end

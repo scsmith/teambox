@@ -49,9 +49,9 @@ class GoogleDocsController < ApplicationController
     end
     
     @docs = GoogleDocs.new(owner_link.access_token, owner_link.access_secret, @consumer)
-    res = @docs.add_permission(@google_doc.acl_url, @app_link.app_user_id, :user, :reader)
+    res = @docs.add_permission(@google_doc.acl_url, @app_link.app_user_id, :user, :writer)
     
-    access_key = @docs.set_read_with_key(@google_doc.acl_url)
+    access_key = @docs.set_read_with_key(@google_doc.acl_url, :writer)
     url_with_access_key = @google_doc.url + (@google_doc.url.include?('?') ? "&authkey=#{access_key}" : "?authkey=#{access_key}")
     puts @google_doc.url.inspect
     
